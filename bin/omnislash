@@ -4,6 +4,10 @@
 require __DIR__ . '/../vendor/autoload.php';
 
 use Omnislash\Application;
+use Symfony\Component\EventDispatcher\EventDispatcher;
+
+$dispatcher = new EventDispatcher();
 
 $application = new Application();
+$application->setDispatcher($dispatcher);
 $application->run();
