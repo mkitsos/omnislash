@@ -13,9 +13,14 @@ use Symfony\Component\Console\Output\OutputInterface;
 class GuzzleHelper extends Helper
 {
     /**
-     * @var \GuzzleHttp\Client; 
+     * @var Client; 
      */
     protected $client = null;
+    
+    /**
+     * @var ProgressBar
+     */
+    protected $progressBar = null;
     
     public static $fulfilled = 0;
     public static $rejected = 0;
@@ -29,51 +34,59 @@ class GuzzleHelper extends Helper
     protected $concurrency;
     protected $httpMethod;
     
-    /**
-     * @var ProgressBar
-     */
-    protected $progressBar = null;
-    
     protected $output;
     protected $input;
 
     public function request(InputInterface $input, OutputInterface $output)
     {
-        $this->output = $output;
-        $this->input = $input;
+        $this->setInput($input);
+        $this->setOutput($output);
         
-        //set arguments
-        $this->baseUri = $input->getArgument('host');
+        $this->setBaseUri($input->getArgument('host'));
+        $this->setNumber($input->getOption('number'));
+        $this->setConcurrency($input->getOption('concurrency'));
         
-        // set options
-        $this->setOptions($input->getOptions());
+        $progress = $this->getProgressBar($output, $this->getNumber());
+        $requests = $this->getRequests($this->getBaseUri(), 'GET');
         
-        $progress = $this->getProgressBar();
+        $pool = $this->getPool(
+            $this->getClient(),
+            $requests,
+            $this->getNumber(),
+            $this->getConcurrency(),
+            $progress
+        );
+        
         // Initiate the transfers and create a promise
-        $promise = $this->getPromise($progress);
+        $promise = $pool->promise();
         // start and displays the progress bar
         $progress->start();
         // Force the pool of requests to complete.
         $promise->wait();
         // Finishes the progress output
         $progress->finish();
+        // Append a newline
+        $output->writeln('');
     }
     
-    protected function getPromise($progress)
+    public function getRequests($uri, $method)
     {
-        $base_uri = $this->baseUri;
-        $method = $this->httpMethod;
-        
-        $requests = function ($total) use ($base_uri, $method) {
+        return function ($total) use ($method, $uri) {
             for ($i = 0; $i < $total; $i++) {
-                yield new Request($method, $base_uri);
+                yield new Request($method, $uri);
             }
         };
-        
-        $client = new Client();
-        
-        $pool = new Pool($client, $requests($this->number), [
-            'concurrency' => $this->concurrency,
+    }
+    
+    public function getPool(
+        Client $client,
+        callable $requests,
+        $total,
+        $concurrency,
+        ProgressBar $progress)
+    {
+        $pool = new Pool($client, $requests($total), [
+            'concurrency' => $concurrency,
             'fulfilled' => function ($response, $index) use ($progress) {
                 // this is delivered each successful response
                 $progress->advance();
@@ -86,25 +99,10 @@ class GuzzleHelper extends Helper
             }
         ]);
         
-        return $pool->promise();
+        return $pool;
     }
     
-    protected function setOptions(array $options)
-    {
-        if ((isset($options['number']))) {
-            $this->number = $options['number'];
-        }
-        
-        if (isset($options['concurrency'])) {
-            $this->concurrency = $options['concurrency'];
-        }
-        
-        if (isset($options['http-method'])) {
-            $this->httpMethod = $options['http-method'];
-        }
-    }
-    
-    public function getProgressBar()
+    public function getProgressBar(OutputInterface $output, $max)
     {
         if ($this->progressBar instanceof ProgressBar) {
             return $this->progressBar;
@@ -124,7 +122,7 @@ class GuzzleHelper extends Helper
             }
         );
         
-        $progress = new ProgressBar($this->output, $this->number);
+        $progress = new ProgressBar($output, $max);
         
         $format = ' %current%/%max% [%bar%] %percent:3s%%';
         $format .= ' Fulfilled: %fulfilled% / Rejected: %rejected%';
@@ -136,13 +134,25 @@ class GuzzleHelper extends Helper
         return $this->progressBar = $progress;
     }
     
+    /**
+     * @param ProgressBar $progressBar
+     */
     public function setProgressBar(ProgressBar $progressBar)
     {
         $this->progressBar = $progressBar;
     }
     
-    protected function setBaseUri($uri)
+    public function getName()
     {
+        return 'guzzle';
+    }
+    
+    public function setBaseUri($uri)
+    {
+        if (! filter_var($uri, FILTER_VALIDATE_URL)) {
+            throw new \InvalidArgumentException('Invalid url provided');
+        }
+        
         $this->baseUri = $uri;
     }
     
@@ -150,9 +160,74 @@ class GuzzleHelper extends Helper
     {
         return $this->baseUri;
     }
-
-    public function getName()
+    
+    public function getClient()
     {
-        return 'guzzle';
+        if ($this->client === null) {
+            $this->client = new Client();
+        }
+        
+        return $this->client;
+    }
+    
+    public function setClient(Client $client)
+    {
+        $this->client = $client;
+    }
+    
+    public function getInput()
+    {
+        if (! $this->input instanceof InputInterface) {
+            throw new \InvalidArgumentException('No input interface specified');
+        }
+        
+        return $this->input;
+    }
+    
+    public function setInput(InputInterface $input)
+    {
+        $this->input = $input;
+    }
+    
+    public function getOutput()
+    {
+        if (! $this->output instanceof OutputInterface) {
+            throw new \InvalidArgumentException('No output interface specified');
+        }
+        
+        return $this->output;
+    }
+    
+    public function setOutput(OutputInterface $output)
+    {
+        $this->output = $output;
+    }
+    
+    public function setNumber($number)
+    {
+        if (! is_numeric($number)) {
+            throw new \InvalidArgumentException('Number of requests must be an integer');
+        }
+        
+        $this->number = $number;
+    }
+    
+    public function getNumber()
+    {
+        return $this->number;
+    }
+    
+    public function setConcurrency($concurrency)
+    {
+        if (! is_numeric($concurrency)) {
+            throw new \InvalidArgumentException('Number of concurrency must be an integer');
+        }
+        
+        $this->concurrency = $concurrency;
+    }
+    
+    public function getConcurrency()
+    {
+        return $this->concurrency;
     }
 }
