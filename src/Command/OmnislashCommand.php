@@ -15,44 +15,38 @@ class OmnislashCommand extends Command
         $this
             ->setName('omnislash')
             ->addArgument(
-                'host',
-                InputArgument::REQUIRED,
+                'host', InputArgument::REQUIRED,
                 '[http[s]://]hostname[:port]/path'
             )
             ->addOption(
-               'number',
-               'n',
-               InputOption::VALUE_REQUIRED,
-               'Number of requests to perform for the benchmarking session',
-               1
+               'number', 'n', InputOption::VALUE_REQUIRED,
+               'Number of requests to perform for the benchmarking session', 1
             )
             ->addOption(
-               'concurrency',
-               'c',
-               InputOption::VALUE_REQUIRED,
-               'Number of multiple requests to perform at a time. Default is one request at a time',
-               1
+               'concurrency', 'c', InputOption::VALUE_REQUIRED,
+               'Number of multiple requests to perform at a time', 1
             )
             ->addOption(
-               'auth',
-               'A',
-               InputOption::VALUE_REQUIRED,
-               'Supply BASIC Authentication credentials to the server'
+               'auth', 'A', InputOption::VALUE_REQUIRED,
+               'Supply authentication credentials to the server'
             )
             ->addOption(
-               'http-method',
-               'm',
-               InputOption::VALUE_REQUIRED,
-               'HTTP method for the request',
-               'GET'
+               'auth-type', null, InputOption::VALUE_REQUIRED,
+               'Specify the auth mechanism. Possible values are <comment>basic</> and <comment>digest</>'
+            )
+            ->addOption(
+               'verify', null, InputOption::VALUE_REQUIRED,
+               'Verify SSL certficate. Possible values: <comment>yes</>, <comment>no</>, <comment>/path/to/cert</>'
+            )
+            ->addOption(
+               'http-method', 'm', InputOption::VALUE_REQUIRED,
+               'HTTP method for the request', 'GET'
             )
         ;
     }
     
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $output->writeln('Sending some requests');
-        
         $guzzle = $this->getHelper('guzzle');
         $guzzle->request($input, $output);
     }

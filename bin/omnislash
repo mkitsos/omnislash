@@ -9,5 +9,5 @@ use Symfony\Component\EventDispatcher\EventDispatcher;
 $dispatcher = new EventDispatcher();
 
 $application = new Application();
-$application->setDispatcher($dispatcher);
+//$application->setDispatcher($dispatcher);
 $application->run();

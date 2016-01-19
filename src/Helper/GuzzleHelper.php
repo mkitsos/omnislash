@@ -41,8 +41,9 @@ class GuzzleHelper extends Helper
     {
         $this->setInput($input);
         $this->setOutput($output);
+        $this->setClient(new Client());
         
-        $this->setBaseUri($input->getArgument('host'));
+        $this->setBaseUri($input->getArgument('URL'));
         $this->setNumber($input->getOption('number'));
         $this->setConcurrency($input->getOption('concurrency'));
         
@@ -142,6 +143,9 @@ class GuzzleHelper extends Helper
         $this->progressBar = $progressBar;
     }
     
+    /**
+     * {@inheritdoc}
+     */
     public function getName()
     {
         return 'guzzle';
@@ -163,10 +167,6 @@ class GuzzleHelper extends Helper
     
     public function getClient()
     {
-        if ($this->client === null) {
-            $this->client = new Client();
-        }
-        
         return $this->client;
     }
     
