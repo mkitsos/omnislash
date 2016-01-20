@@ -15,7 +15,7 @@ class OmnislashCommand extends Command
         $this
             ->setName('omnislash')
             ->addArgument(
-                'host', InputArgument::REQUIRED,
+                'URL', InputArgument::REQUIRED,
                 '[http[s]://]hostname[:port]/path'
             )
             ->addOption(
@@ -35,8 +35,20 @@ class OmnislashCommand extends Command
                'Specify the auth mechanism. Possible values are <comment>basic</> and <comment>digest</>'
             )
             ->addOption(
+               'cert', null, InputOption::VALUE_REQUIRED,
+               'Specify the path to a file containing a PEM formatted client side certificate'
+            )
+            ->addOption(
                'verify', null, InputOption::VALUE_REQUIRED,
                'Verify SSL certficate. Possible values: <comment>yes</>, <comment>no</>, <comment>/path/to/cert</>'
+            )
+            ->addOption(
+               'header', 'H', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
+               'Array of headers to add to the request'
+            )
+            ->addOption(
+               'form-param', 'p', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY,
+               'Array of form field names to values where each value is a string'
             )
             ->addOption(
                'http-method', 'm', InputOption::VALUE_REQUIRED,
@@ -48,6 +60,6 @@ class OmnislashCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $guzzle = $this->getHelper('guzzle');
-        $guzzle->request($input, $output);
+        $guzzle->singleRequest($input, $output);
     }
 }

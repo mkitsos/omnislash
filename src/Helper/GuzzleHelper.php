@@ -5,6 +5,8 @@ namespace Omnislash\Helper;
 use GuzzleHttp\Client;
 use GuzzleHttp\Pool;
 use GuzzleHttp\Psr7\Request;
+use Psr\Http\Message\ResponseInterface;
+use GuzzleHttp\Exception\RequestException;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Helper\Helper;
 use Symfony\Component\Console\Input\InputInterface;
@@ -22,6 +24,9 @@ class GuzzleHelper extends Helper
      */
     protected $progressBar = null;
     
+    protected $output;
+    protected $input;
+    
     public static $fulfilled = 0;
     public static $rejected = 0;
     
@@ -34,18 +39,23 @@ class GuzzleHelper extends Helper
     protected $concurrency;
     protected $httpMethod;
     
-    protected $output;
-    protected $input;
-
+    /**
+     * Guzzle client options.
+     * 
+     * @var array
+     */
+    protected $options = [];
+    
     public function request(InputInterface $input, OutputInterface $output)
     {
         $this->setInput($input);
         $this->setOutput($output);
         $this->setClient(new Client());
         
+        print_r($input->getOptions()); exit;
+         
         $this->setBaseUri($input->getArgument('URL'));
-        $this->setNumber($input->getOption('number'));
-        $this->setConcurrency($input->getOption('concurrency'));
+        $this->setOptions($input->getOptions());
         
         $progress = $this->getProgressBar($output, $this->getNumber());
         $requests = $this->getRequests($this->getBaseUri(), 'GET');
@@ -68,6 +78,39 @@ class GuzzleHelper extends Helper
         $progress->finish();
         // Append a newline
         $output->writeln('');
+    }
+    
+    public function singleRequest(InputInterface $input, OutputInterface $output)
+    {
+        $base_uri = $input->getArgument('URL');
+        
+        $client = new Client(['base_uri' => $base_uri, 'http_errors' => false]);
+        
+        $response = $client->request('GET');
+        
+        $protocol = $response->getProtocolVersion();
+        $code = $response->getStatusCode();
+        $reason = $response->getReasonPhrase();
+        
+        $output->writeln('<info>HTTP/' . $protocol . '</> ' . $code . ' ' . $reason);
+    }
+    
+    public function setOptions(array $options = [])
+    {
+        foreach ($options as $key => $value) {
+            $pos = strpos($key, '-');
+            
+            // convert dashes to camel case
+            if ($pos !== false) {
+                $key = lcfirst(str_replace(' ', '', ucwords(str_replace('-', ' ', $key))));
+            }
+            
+            $method = 'set' . ucfirst($key);
+            
+            if (method_exists($this, $method)) {
+                $this->$method($value);
+            }
+        }
     }
     
     public function getRequests($uri, $method)
@@ -229,5 +272,34 @@ class GuzzleHelper extends Helper
     public function getConcurrency()
     {
         return $this->concurrency;
+    }
+    
+    public function setHttpMethod($method)
+    {
+        $this->httpMethod = $method;
+    }
+    
+    public function getHttpMethod()
+    {
+        return $this->httpMethod;
+    }
+    
+    public function setAuth($auth)
+    {
+        list($username, $password) = explode(':', $auth);
+        
+        $this->options['auth'] = [$username, $password];
+    }
+    
+    public function getAuth()
+    {
+        return isset($this->options['auth']) ? $this->options['auth'] : null;
+    }
+    
+    public function setAuthType($type)
+    {
+        if (!in_array($type, ['basic', 'digest'])) {
+            throw new \InvalidArgumentException('Invalid auth-type provided');
+        }
     }
 }
